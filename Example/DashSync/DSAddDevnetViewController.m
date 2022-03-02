@@ -9,6 +9,7 @@
 #import "DSAddDevnetViewController.h"
 #import "DSAddDevnetAddIPAddressTableViewCell.h"
 #import "DSAddDevnetIPAddressTableViewCell.h"
+#import "DSDevnetChainInfo.h"
 #import "DSKeyValueTableViewCell.h"
 #import <DashSync/DashSync.h>
 
@@ -63,9 +64,10 @@
         self.insertedIPAddresses = [NSMutableOrderedSet orderedSet];
     } else {
         DSPeerManager *peerManager = [[DSChainsManager sharedInstance] chainManagerForChain:self.chain].peerManager;
+        DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chain.chainInfo;
         self.insertedIPAddresses = [NSMutableOrderedSet orderedSetWithArray:peerManager.registeredDevnetPeerServices];
-        self.addDevnetNameTableViewCell.valueTextField.text = self.chain.devnetIdentifier;
-        self.addDevnetVersionTableViewCell.valueTextField.text = [NSString stringWithFormat:@"%u", self.chain.devnetVersion];
+        self.addDevnetNameTableViewCell.valueTextField.text = chainInfo.identifier;
+        self.addDevnetVersionTableViewCell.valueTextField.text = [NSString stringWithFormat:@"%u", chainInfo.version];
         self.protocolVersionTableViewCell.valueTextField.text = [NSString stringWithFormat:@"%u", self.chain.protocolVersion];
         self.minProtocolVersionTableViewCell.valueTextField.text = [NSString stringWithFormat:@"%u", self.chain.minProtocolVersion];
         self.sporkPrivateKeyTableViewCell.valueTextField.text = self.chain.sporkPrivateKeyBase58String;
@@ -198,7 +200,6 @@
 // MARK:- Table View Data Delegate
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
-    
     if (indexPath.section == IP_ADDRESSES_SECTION && indexPath.row == _insertedIPAddresses.count + 1) {
         if (self.activeAddDevnetIPAddressTableViewCell) {
             NSIndexPath *activeIndexPath = [self.tableView indexPathForCell:self.activeAddDevnetIPAddressTableViewCell];
@@ -283,7 +284,8 @@
     } else {
         NSString *identifier = self.addDevnetNameTableViewCell.valueTextField.text;
         uint16_t version = [self.addDevnetVersionTableViewCell.valueTextField.text intValue];
-        [[DSChainsManager sharedInstance] registerDevnetChainWithIdentifier:identifier version:version forServiceLocations:self.insertedIPAddresses withMinimumDifficultyBlocks:minimumDifficultyBlocks standardPort:dashdPort dapiJRPCPort:dapiJRPCPort dapiGRPCPort:dapiGRPCPort dpnsContractID:dpnsContractID dashpayContractID:dashpayContractID protocolVersion:protocolVersion minProtocolVersion:minProtocolVersion sporkAddress:sporkAddress sporkPrivateKey:sporkPrivateKey instantSendLockQuorumType:instantSendLockQuorumType chainLockQuorumType:chainLockQuorumType platformQuorumType:platformQuorumType];
+        DSDevnetChainInfo *chainInfo = [DSDevnetChainInfo devnetChainInfoWithIdentifier:identifier version:version];
+        [[DSChainsManager sharedInstance] registerDevnetChainWithChainInfo:chainInfo protocolVersion:protocolVersion minProtocolVersion:minProtocolVersion forServiceLocations:self.insertedIPAddresses withMinimumDifficultyBlocks:minimumDifficultyBlocks standardPort:dashdPort dapiJRPCPort:dapiJRPCPort dapiGRPCPort:dapiGRPCPort dpnsContractID:dpnsContractID dashpayContractID:dashpayContractID sporkAddress:sporkAddress sporkPrivateKey:sporkPrivateKey instantSendLockQuorumType:instantSendLockQuorumType chainLockQuorumType:chainLockQuorumType platformQuorumType:platformQuorumType];
     }
     [self.presentingViewController dismissViewControllerAnimated:TRUE completion:nil];
 }

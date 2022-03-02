@@ -25,6 +25,7 @@
 
 #import "BigIntTypes.h"
 #import "DSChainConstants.h"
+#import "DSDevnetChainInfo.h"
 #import <CoreData/CoreData.h>
 #import <Foundation/Foundation.h>
 
@@ -43,41 +44,7 @@ FOUNDATION_EXPORT NSString *const DSChainInitialHeadersDidFinishSyncingNotificat
 FOUNDATION_EXPORT NSString *const DSChainBlocksDidFinishSyncingNotification;
 FOUNDATION_EXPORT NSString *const DSChainNewChainTipBlockNotification;
 
-typedef NS_ENUM(uint16_t, DSChainType)
-{
-    DSChainType_MainNet = 0,
-    DSChainType_TestNet = 1,
-    DSChainType_DevNet = 2,
-};
-
-typedef NS_ENUM(NSUInteger, DSTransactionDirection)
-{
-    DSTransactionDirection_Sent,
-    DSTransactionDirection_Received,
-    DSTransactionDirection_Moved,
-    DSTransactionDirection_NotAccountFunds,
-};
-
-typedef NS_ENUM(uint16_t, DSLLMQType)
-{
-    DSLLMQType_50_60 = 1,  //every 24 blocks
-    DSLLMQType_400_60 = 2, //288 blocks
-    DSLLMQType_400_85 = 3, //576 blocks
-    DSLLMQType_100_67 = 4, //every 24 blocks
-    DSLLMQType_60_80 = 5,
-    DSLLMQType_5_60 = 100, //24 blocks
-    DSLLMQType_10_60 = 101 //24 blocks
-};
-
-typedef NS_ENUM(uint16_t, DSChainSyncPhase)
-{
-    DSChainSyncPhase_Offline = 0,
-    DSChainSyncPhase_InitialTerminalBlocks,
-    DSChainSyncPhase_ChainSync,
-    DSChainSyncPhase_Synced,
-};
-
-@class DSChain, DSChainEntity, DSChainManager, DSWallet, DSMerkleBlock, DSBlock, DSFullBlock, DSPeer, DSDerivationPath, DSTransaction, DSAccount, DSSimplifiedMasternodeEntry, DSBlockchainIdentity, DSBloomFilter, DSProviderRegistrationTransaction, DSMasternodeList, DPContract, DSCheckpoint, DSChainLock;
+@class DSChain, DSChainEntity, DSChainManager, DSWallet, DSMerkleBlock, DSBlock, DSFullBlock, DSPeer, DSDerivationPath, DSTransaction, DSAccount, DSSimplifiedMasternodeEntry, DSBlockchainIdentity, DSBloomFilter, DSProviderRegistrationTransaction, DSMasternodeList, DPContract, DSCheckpoint, DSChainLock, DSChainInfo, DSDevnetChainInfo;
 
 @protocol DSChainDelegate;
 
@@ -214,11 +181,14 @@ typedef NS_ENUM(uint16_t, DSChainSyncPhase)
 /*! @brief The unique identifier of the chain. This unique id follows the same chain accross devices because it is the short hex string of the genesis hash.  */
 @property (nonatomic, readonly) NSString *uniqueID;
 
-/*! @brief The devnet identifier is the name of the devnet, the genesis hash of a devnet uses this devnet identifier in its construction.  */
-@property (nonatomic, readonly, nullable) NSString *devnetIdentifier;
+/*! @brief The info of the chain. This includes devnet identifier, version, and supported protocol versions. the genesis hash of a devnet uses this devnet identifier in its construction  */
+@property (nonatomic, strong) DSChainInfo *chainInfo;
 
-/*! @brief The devnet version is the version of the devnet, the genesis hash of a devnet uses this devnet identifier in its construction.  */
-@property (nonatomic, readonly) uint16_t devnetVersion;
+///*! @brief The devnet identifier is the name of the devnet, the genesis hash of a devnet uses this devnet identifier in its construction.  */
+//@property (nonatomic, readonly, nullable) NSString *devnetIdentifier;
+//
+///*! @brief The devnet version is the version of the devnet, the genesis hash of a devnet uses this devnet identifier in its construction.  */
+//@property (nonatomic, readonly) uint16_t devnetVersion;
 
 /*! @brief The name of the chain (Mainnet-Testnet-Devnet).  */
 @property (nonatomic, readonly) NSString *name;
@@ -480,13 +450,13 @@ typedef NS_ENUM(uint16_t, DSChainSyncPhase)
 + (DSChain *)testnet;
 
 /*! @brief Devnet chain with given identifier.  */
-+ (DSChain *_Nullable)devnetWithIdentifier:(NSString *)identifier;
++ (DSChain *_Nullable)devnetWithChainInfo:(DSDevnetChainInfo *)chainInfo;
 
 /*! @brief Set up a given devnet with an identifier, checkpoints, default L1, JRPC and GRPC ports, a dpns contractId and a dashpay contract id. minimumDifficultyBlocks are used to speed up the initial chain creation. This devnet will be registered on the keychain. The additional isTransient property allows for test usage where you do not wish to persist the devnet.  */
-+ (DSChain *)setUpDevnetWithIdentifier:(NSString *)identifier version:(uint16_t)version protocolVersion:(uint32_t)protocolVersion minProtocolVersion:(uint32_t)minProtocolVersion withCheckpoints:(NSArray<DSCheckpoint *> *_Nullable)checkpointArray withMinimumDifficultyBlocks:(uint32_t)minimumDifficultyBlocks withDefaultPort:(uint32_t)port withDefaultDapiJRPCPort:(uint32_t)dapiJRPCPort withDefaultDapiGRPCPort:(uint32_t)dapiGRPCPort dpnsContractID:(UInt256)dpnsContractID dashpayContractID:(UInt256)dashpayContractID instantSendLockQuorumType:(DSLLMQType)instantSendLockQuorumsType chainLockQuorumType:(DSLLMQType)chainLockQuorumsType platformQuorumType:(DSLLMQType)platformQuorumType isTransient:(BOOL)isTransient;
++ (DSChain *)setUpDevnetWithChainInfo:(DSDevnetChainInfo *)chainInfo withCheckpoints:(NSArray<DSCheckpoint *> *_Nullable)checkpointArray withMinimumDifficultyBlocks:(uint32_t)minimumDifficultyBlocks withDefaultPort:(uint32_t)port withDefaultDapiJRPCPort:(uint32_t)dapiJRPCPort withDefaultDapiGRPCPort:(uint32_t)dapiGRPCPort dpnsContractID:(UInt256)dpnsContractID dashpayContractID:(UInt256)dashpayContractID instantSendLockQuorumType:(DSLLMQType)instantSendLockQuorumsType chainLockQuorumType:(DSLLMQType)chainLockQuorumsType platformQuorumType:(DSLLMQType)platformQuorumType isTransient:(BOOL)isTransient;
 
 /*! @brief Retrieve from the keychain a devnet with an identifier and add given checkpoints.  */
-+ (DSChain *)recoverKnownDevnetWithIdentifier:(NSString *)identifier version:(uint16_t)version withCheckpoints:(NSArray<DSCheckpoint *> *)checkpointArray performSetup:(BOOL)performSetup;
++ (DSChain *)recoverKnownDevnetWithChainInfo:(DSDevnetChainInfo *)chainInfo withCheckpoints:(NSArray<DSCheckpoint *> *)checkpointArray performSetup:(BOOL)performSetup;
 
 /*! @brief Retrieve a chain having the specified network name.  */
 + (DSChain *_Nullable)chainForNetworkName:(NSString *_Nullable)networkName;

@@ -438,11 +438,13 @@
     if (self.chain.isMainnet) {
         agent = [USER_AGENT stringByAppendingString:@"/"];
     } else if (self.chain.isTestnet) {
-        agent = [USER_AGENT stringByAppendingString:@"/(testnet)"];
+        agent = [USER_AGENT stringByAppendingString:@"(testnet)/"];
     } else if (self.chain.protocolVersion >= 70220) {
-        agent = [USER_AGENT stringByAppendingString:[NSString stringWithFormat:@"(devnet.%u.%@)/", self.chain.devnetVersion, self.chain.devnetIdentifier]];
+        DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chain.chainInfo;
+        agent = [USER_AGENT stringByAppendingString:[NSString stringWithFormat:@"(devnet.%u.%@)/", chainInfo.version, chainInfo.identifier]];
     } else {
-        agent = [USER_AGENT_DEPRECATED_70219 stringByAppendingString:[NSString stringWithFormat:@"(devnet=%@)", self.chain.devnetIdentifier]];
+        DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chain.chainInfo;
+        agent = [USER_AGENT_DEPRECATED_70219 stringByAppendingString:[NSString stringWithFormat:@"(devnet=%@)", chainInfo.identifier]];
     }
     [msg appendString:agent]; // user agent
     [msg appendUInt32:0];     // last block received

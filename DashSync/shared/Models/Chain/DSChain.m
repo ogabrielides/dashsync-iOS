@@ -121,8 +121,7 @@
 
 #define BLOCK_NO_FORK_DEPTH 25
 
-typedef NS_ENUM(uint16_t, DSBlockPosition)
-{
+typedef NS_ENUM(uint16_t, DSBlockPosition) {
     DSBlockPosition_Orphan = 0,
     DSBlockPosition_Terminal = 1,
     DSBlockPosition_Sync = 2,
@@ -139,8 +138,6 @@ typedef NS_ENUM(uint16_t, DSBlockPosition)
 @property (nonatomic, copy) NSString *uniqueID;
 @property (nonatomic, copy) NSString *networkName;
 @property (nonatomic, strong) NSMutableArray<DSWallet *> *mWallets;
-@property (nonatomic, strong) NSString *devnetIdentifier;
-@property (nonatomic, assign) uint16_t devnetVersion;
 @property (nonatomic, strong) DSAccount *viewingAccount;
 @property (nonatomic, strong) NSMutableDictionary<NSNumber *, NSMutableArray<DSPeer *> *> *estimatedBlockHeights;
 @property (nonatomic, assign) uint32_t cachedMinimumDifficultyBlocks;
@@ -228,14 +225,15 @@ typedef NS_ENUM(uint16_t, DSBlockPosition)
 
     return self;
 }
-
-- (instancetype)initAsDevnetWithIdentifier:(NSString *)identifier version:(uint16_t)version onProtocolVersion:(uint32_t)protocolVersion checkpoints:(NSArray<DSCheckpoint *> *)checkpoints {
-    //for devnet the genesis checkpoint is really the second block
+- (instancetype)initAsDevnetWithChainInfo:(DSDevnetChainInfo *)chainInfo checkpoints:(NSArray<DSCheckpoint *> *)checkpoints {
+    // for devnet the genesis checkpoint is really the second block
     if (!(self = [self init])) return nil;
-    _chainType = DSChainType_DevNet;
+    _chainType = chainInfo.chainType;
+    self.chainInfo = chainInfo;
+    self.headersMaxAmount = DEVNET_DEFAULT_HEADERS_MAX_AMOUNT;
     if (!checkpoints || ![checkpoints count]) {
         DSCheckpoint *genesisCheckpoint = [DSCheckpoint genesisDevnetCheckpoint];
-        DSCheckpoint *secondCheckpoint = [self createDevNetGenesisBlockCheckpointForParentCheckpoint:genesisCheckpoint withIdentifier:identifier version:version onProtocolVersion:protocolVersion];
+        DSCheckpoint *secondCheckpoint = [self createDevNetGenesisBlockCheckpointForParentCheckpoint:genesisCheckpoint withChainInfo:chainInfo];
         self.checkpoints = @[genesisCheckpoint, secondCheckpoint];
         self.genesisHash = secondCheckpoint.blockHash;
     } else {
@@ -247,15 +245,12 @@ typedef NS_ENUM(uint16_t, DSBlockPosition)
     });
     //    DSLog(@"%@",[NSData dataWithUInt256:self.checkpoints[0].checkpointHash]);
     //    DSLog(@"%@",[NSData dataWithUInt256:self.genesisHash]);
-    self.devnetIdentifier = identifier;
-    self.headersMaxAmount = DEVNET_DEFAULT_HEADERS_MAX_AMOUNT;
     return self;
 }
 
-- (instancetype)initAsDevnetWithIdentifier:(NSString *)identifier version:(uint16_t)version protocolVersion:(uint32_t)protocolVersion minProtocolVersion:(uint32_t)minProtocolVersion checkpoints:(NSArray<DSCheckpoint *> *)checkpoints minimumDifficultyBlocks:(uint32_t)minimumDifficultyBlocks port:(uint32_t)port dapiJRPCPort:(uint32_t)dapiJRPCPort dapiGRPCPort:(uint32_t)dapiGRPCPort dpnsContractID:(UInt256)dpnsContractID dashpayContractID:(UInt256)dashpayContractID instantSendLockQuorumType:(DSLLMQType)instantSendLockQuorumsType chainLockQuorumType:(DSLLMQType)chainLockQuorumsType platformQuorumType:(DSLLMQType)platformQuorumType isTransient:(BOOL)isTransient {
-    //for devnet the genesis checkpoint is really the second block
-    if (!(self = [self initAsDevnetWithIdentifier:identifier version:version onProtocolVersion:protocolVersion checkpoints:checkpoints])) return nil;
-    self.devnetVersion = version;
+- (instancetype)initAsDevnetWithChainInfo:(DSDevnetChainInfo *)chainInfo checkpoints:(NSArray<DSCheckpoint *> *)checkpoints minimumDifficultyBlocks:(uint32_t)minimumDifficultyBlocks port:(uint32_t)port dapiJRPCPort:(uint32_t)dapiJRPCPort dapiGRPCPort:(uint32_t)dapiGRPCPort dpnsContractID:(UInt256)dpnsContractID dashpayContractID:(UInt256)dashpayContractID instantSendLockQuorumType:(DSLLMQType)instantSendLockQuorumsType chainLockQuorumType:(DSLLMQType)chainLockQuorumsType platformQuorumType:(DSLLMQType)platformQuorumType isTransient:(BOOL)isTransient {
+    // for devnet the genesis checkpoint is really the second block
+    if (!(self = [self initAsDevnetWithChainInfo:chainInfo checkpoints:checkpoints])) return nil;
     self.standardPort = port;
     self.standardDapiJRPCPort = dapiJRPCPort;
     self.standardDapiGRPCPort = dapiGRPCPort;
@@ -324,27 +319,27 @@ typedef NS_ENUM(uint16_t, DSBlockPosition)
 static NSMutableDictionary *_devnetDictionary = nil;
 static dispatch_once_t devnetToken = 0;
 
-+ (DSChain *)devnetWithIdentifier:(NSString *)identifier {
++ (DSChain *)devnetWithChainInfo:(DSDevnetChainInfo *)chainInfo {
     dispatch_once(&devnetToken, ^{
         _devnetDictionary = [NSMutableDictionary dictionary];
     });
-    DSChain *devnetChain = [_devnetDictionary objectForKey:identifier];
+    DSChain *devnetChain = [_devnetDictionary objectForKey:chainInfo];
     return devnetChain;
 }
 
-+ (DSChain *)recoverKnownDevnetWithIdentifier:(NSString *)identifier version:(uint16_t)version withCheckpoints:(NSArray<DSCheckpoint *> *)checkpointArray performSetup:(BOOL)performSetup {
++ (DSChain *)recoverKnownDevnetWithChainInfo:(DSDevnetChainInfo *)chainInfo withCheckpoints:(NSArray<DSCheckpoint *> *)checkpointArray performSetup:(BOOL)performSetup {
     dispatch_once(&devnetToken, ^{
         _devnetDictionary = [NSMutableDictionary dictionary];
     });
     DSChain *devnetChain = nil;
     __block BOOL inSetUp = FALSE;
     @synchronized(self) {
-        if (![_devnetDictionary objectForKey:identifier]) {
-            devnetChain = [[DSChain alloc] initAsDevnetWithIdentifier:identifier version:version onProtocolVersion:PROTOCOL_VERSION_DEVNET checkpoints:checkpointArray];
-            _devnetDictionary[identifier] = devnetChain;
+        if (![_devnetDictionary objectForKey:chainInfo]) {
+            devnetChain = [[DSChain alloc] initAsDevnetWithChainInfo:chainInfo checkpoints:checkpointArray];
+            _devnetDictionary[chainInfo] = devnetChain;
             inSetUp = TRUE;
         } else {
-            devnetChain = [_devnetDictionary objectForKey:identifier];
+            devnetChain = [_devnetDictionary objectForKey:chainInfo];
         }
     }
     if (inSetUp) {
@@ -366,19 +361,19 @@ static dispatch_once_t devnetToken = 0;
     return devnetChain;
 }
 
-+ (DSChain *)setUpDevnetWithIdentifier:(NSString *)identifier version:(uint16_t)version protocolVersion:(uint32_t)protocolVersion minProtocolVersion:(uint32_t)minProtocolVersion withCheckpoints:(NSArray<DSCheckpoint *> *)checkpointArray withMinimumDifficultyBlocks:(uint32_t)minimumDifficultyBlocks withDefaultPort:(uint32_t)port withDefaultDapiJRPCPort:(uint32_t)dapiJRPCPort withDefaultDapiGRPCPort:(uint32_t)dapiGRPCPort dpnsContractID:(UInt256)dpnsContractID dashpayContractID:(UInt256)dashpayContractID instantSendLockQuorumType:(DSLLMQType)instantSendLockQuorumsType chainLockQuorumType:(DSLLMQType)chainLockQuorumsType platformQuorumType:(DSLLMQType)platformQuorumType isTransient:(BOOL)isTransient {
++ (DSChain *)setUpDevnetWithChainInfo:(DSDevnetChainInfo *)chainInfo withCheckpoints:(NSArray<DSCheckpoint *> *)checkpointArray withMinimumDifficultyBlocks:(uint32_t)minimumDifficultyBlocks withDefaultPort:(uint32_t)port withDefaultDapiJRPCPort:(uint32_t)dapiJRPCPort withDefaultDapiGRPCPort:(uint32_t)dapiGRPCPort dpnsContractID:(UInt256)dpnsContractID dashpayContractID:(UInt256)dashpayContractID instantSendLockQuorumType:(DSLLMQType)instantSendLockQuorumsType chainLockQuorumType:(DSLLMQType)chainLockQuorumsType platformQuorumType:(DSLLMQType)platformQuorumType isTransient:(BOOL)isTransient {
     dispatch_once(&devnetToken, ^{
         _devnetDictionary = [NSMutableDictionary dictionary];
     });
     DSChain *devnetChain = nil;
     __block BOOL inSetUp = FALSE;
     @synchronized(self) {
-        if (![_devnetDictionary objectForKey:identifier]) {
-            devnetChain = [[DSChain alloc] initAsDevnetWithIdentifier:identifier version:version protocolVersion:protocolVersion minProtocolVersion:minProtocolVersion checkpoints:checkpointArray minimumDifficultyBlocks:minimumDifficultyBlocks port:port dapiJRPCPort:dapiJRPCPort dapiGRPCPort:dapiGRPCPort dpnsContractID:dpnsContractID dashpayContractID:dashpayContractID instantSendLockQuorumType:instantSendLockQuorumsType chainLockQuorumType:chainLockQuorumsType platformQuorumType:platformQuorumType isTransient:isTransient];
-            _devnetDictionary[identifier] = devnetChain;
+        if (![_devnetDictionary objectForKey:chainInfo]) {
+            devnetChain = [[DSChain alloc] initAsDevnetWithChainInfo:chainInfo checkpoints:checkpointArray minimumDifficultyBlocks:minimumDifficultyBlocks port:port dapiJRPCPort:dapiJRPCPort dapiGRPCPort:dapiGRPCPort dpnsContractID:dpnsContractID dashpayContractID:dashpayContractID instantSendLockQuorumType:instantSendLockQuorumsType chainLockQuorumType:chainLockQuorumsType platformQuorumType:platformQuorumType isTransient:isTransient];
+            _devnetDictionary[chainInfo] = devnetChain;
             inSetUp = TRUE;
         } else {
-            devnetChain = [_devnetDictionary objectForKey:identifier];
+            devnetChain = [_devnetDictionary objectForKey:chainInfo];
         }
     }
     if (inSetUp && !isTransient) {
@@ -524,13 +519,13 @@ static dispatch_once_t devnetToken = 0;
     return d.x11;
 }
 
-- (DSCheckpoint *)createDevNetGenesisBlockCheckpointForParentCheckpoint:(DSCheckpoint *)checkpoint withIdentifier:(NSString *)identifier version:(uint16_t)version onProtocolVersion:(uint32_t)protocolVersion {
+- (DSCheckpoint *)createDevNetGenesisBlockCheckpointForParentCheckpoint:(DSCheckpoint *)checkpoint withChainInfo:(DSDevnetChainInfo *)chainInfo {
     uint32_t nTime = checkpoint.timestamp + 1;
     uint32_t nBits = checkpoint.target;
     UInt256 fullTarget = setCompactLE(nBits);
     uint32_t nVersion = 4;
     UInt256 prevHash = checkpoint.blockHash;
-    UInt256 merkleRoot = [DSTransaction devnetGenesisCoinbaseWithIdentifier:identifier version:version onProtocolVersion:protocolVersion forChain:self].txHash;
+    UInt256 merkleRoot = [DSTransaction devnetGenesisCoinbaseWithProtocolVersion:PROTOCOL_VERSION_DEVNET forChain:self].txHash;
     UInt256 chainWork = @"0400000000000000000000000000000000000000000000000000000000000000".hexToData.UInt256;
     uint32_t nonce = UINT32_MAX; //+1 => 0;
     UInt256 blockhash;
@@ -645,7 +640,8 @@ static dispatch_once_t devnetToken = 0;
             return @"Testnet";
         case DSChainType_DevNet:
             if (_networkName) return _networkName;
-            return [NSString stringWithFormat:@"Devnet - %@.%u", self.devnetIdentifier, self.devnetVersion];
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            return [NSString stringWithFormat:@"Devnet - %@.%u", chainInfo.identifier, chainInfo.version];
     }
     if (_networkName) return _networkName;
 }
@@ -658,7 +654,8 @@ static dispatch_once_t devnetToken = 0;
             return DSLocalizedString(@"Testnet", nil);
         case DSChainType_DevNet:
             if (_networkName) return _networkName;
-            return [NSString stringWithFormat:@"%@ - %@.%u", DSLocalizedString(@"Devnet", nil), self.devnetIdentifier, self.devnetVersion];
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            return [NSString stringWithFormat:@"%@ - %@.%u", DSLocalizedString(@"Devnet", nil), chainInfo.identifier, chainInfo.version];
     }
     if (_networkName) return _networkName;
 }
@@ -756,7 +753,8 @@ static dispatch_once_t devnetToken = 0;
             return PROTOCOL_VERSION_TESTNET;
         case DSChainType_DevNet: {
             NSError *error = nil;
-            uint32_t protocolVersion = (uint32_t)getKeychainInt([NSString stringWithFormat:@"%@%@", self.devnetIdentifier, PROTOCOL_VERSION_LOCATION], &error);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            uint32_t protocolVersion = (uint32_t)getKeychainInt([NSString stringWithFormat:@"%@%@", chainInfo.identifier, PROTOCOL_VERSION_LOCATION], &error);
             if (!error && protocolVersion)
                 return protocolVersion;
             else
@@ -772,7 +770,8 @@ static dispatch_once_t devnetToken = 0;
         case DSChainType_TestNet:
             return;
         case DSChainType_DevNet: {
-            setKeychainInt(protocolVersion, [NSString stringWithFormat:@"%@%@", self.devnetIdentifier, PROTOCOL_VERSION_LOCATION], NO);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            setKeychainInt(protocolVersion, [NSString stringWithFormat:@"%@%@", chainInfo.identifier, PROTOCOL_VERSION_LOCATION], NO);
             break;
         }
     }
@@ -786,7 +785,8 @@ static dispatch_once_t devnetToken = 0;
             return DSLLMQType_50_60;
         case DSChainType_DevNet: {
             NSError *error = nil;
-            DSLLMQType quorumType = (DSLLMQType)getKeychainInt([NSString stringWithFormat:@"%@%@", self.devnetIdentifier, ISLOCK_QUORUM_TYPE], &error);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            DSLLMQType quorumType = (DSLLMQType)getKeychainInt([NSString stringWithFormat:@"%@%@", chainInfo.identifier, ISLOCK_QUORUM_TYPE], &error);
             if (!error && quorumType)
                 return quorumType;
             else
@@ -802,7 +802,8 @@ static dispatch_once_t devnetToken = 0;
         case DSChainType_TestNet:
             return;
         case DSChainType_DevNet: {
-            setKeychainInt(quorumTypeForISLocks, [NSString stringWithFormat:@"%@%@", self.devnetIdentifier, ISLOCK_QUORUM_TYPE], NO);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            setKeychainInt(quorumTypeForISLocks, [NSString stringWithFormat:@"%@%@", chainInfo.identifier, ISLOCK_QUORUM_TYPE], NO);
             break;
         }
     }
@@ -816,7 +817,8 @@ static dispatch_once_t devnetToken = 0;
             return DSLLMQType_50_60;
         case DSChainType_DevNet: {
             NSError *error = nil;
-            DSLLMQType quorumType = (DSLLMQType)getKeychainInt([NSString stringWithFormat:@"%@%@", self.devnetIdentifier, CHAINLOCK_QUORUM_TYPE], &error);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            DSLLMQType quorumType = (DSLLMQType)getKeychainInt([NSString stringWithFormat:@"%@%@", chainInfo.identifier, CHAINLOCK_QUORUM_TYPE], &error);
             if (!error && quorumType)
                 return quorumType;
             else
@@ -832,7 +834,8 @@ static dispatch_once_t devnetToken = 0;
         case DSChainType_TestNet:
             return;
         case DSChainType_DevNet: {
-            setKeychainInt(quorumTypeForChainLocks, [NSString stringWithFormat:@"%@%@", self.devnetIdentifier, CHAINLOCK_QUORUM_TYPE], NO);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            setKeychainInt(quorumTypeForChainLocks, [NSString stringWithFormat:@"%@%@", chainInfo.identifier, CHAINLOCK_QUORUM_TYPE], NO);
             break;
         }
     }
@@ -846,7 +849,8 @@ static dispatch_once_t devnetToken = 0;
             return DSLLMQType_100_67;
         case DSChainType_DevNet: {
             NSError *error = nil;
-            DSLLMQType quorumType = (DSLLMQType)getKeychainInt([NSString stringWithFormat:@"%@%@", self.devnetIdentifier, PLATFORM_QUORUM_TYPE], &error);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            DSLLMQType quorumType = (DSLLMQType)getKeychainInt([NSString stringWithFormat:@"%@%@", chainInfo.identifier, PLATFORM_QUORUM_TYPE], &error);
             if (!error && quorumType)
                 return quorumType;
             else
@@ -862,7 +866,8 @@ static dispatch_once_t devnetToken = 0;
         case DSChainType_TestNet:
             return;
         case DSChainType_DevNet: {
-            setKeychainInt(quorumTypeForPlatform, [NSString stringWithFormat:@"%@%@", self.devnetIdentifier, PLATFORM_QUORUM_TYPE], NO);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            setKeychainInt(quorumTypeForPlatform, [NSString stringWithFormat:@"%@%@", chainInfo.identifier, PLATFORM_QUORUM_TYPE], NO);
             break;
         }
     }
@@ -895,7 +900,8 @@ static dispatch_once_t devnetToken = 0;
         }
         case DSChainType_DevNet: {
             NSError *error = nil;
-            uint32_t minProtocolVersion = (uint32_t)getKeychainInt([NSString stringWithFormat:@"%@%@", self.devnetIdentifier, DEFAULT_MIN_PROTOCOL_VERSION_LOCATION], &error);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            uint32_t minProtocolVersion = (uint32_t)getKeychainInt([NSString stringWithFormat:@"%@%@", chainInfo.identifier, DEFAULT_MIN_PROTOCOL_VERSION_LOCATION], &error);
             if (!error && minProtocolVersion)
                 _cachedMinProtocolVersion = MAX(minProtocolVersion, DEFAULT_MIN_PROTOCOL_VERSION_DEVNET);
             else
@@ -919,7 +925,8 @@ static dispatch_once_t devnetToken = 0;
             _cachedMinProtocolVersion = MAX(minProtocolVersion, DEFAULT_MIN_PROTOCOL_VERSION_TESTNET);
             break;
         case DSChainType_DevNet: {
-            setKeychainInt(MAX(minProtocolVersion, DEFAULT_MIN_PROTOCOL_VERSION_DEVNET), [NSString stringWithFormat:@"%@%@", self.devnetIdentifier, DEFAULT_MIN_PROTOCOL_VERSION_LOCATION], NO);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            setKeychainInt(MAX(minProtocolVersion, DEFAULT_MIN_PROTOCOL_VERSION_DEVNET), [NSString stringWithFormat:@"%@%@", chainInfo.identifier, DEFAULT_MIN_PROTOCOL_VERSION_LOCATION], NO);
             _cachedMinProtocolVersion = MAX(minProtocolVersion, DEFAULT_MIN_PROTOCOL_VERSION_DEVNET);
             break;
         }
@@ -937,7 +944,8 @@ static dispatch_once_t devnetToken = 0;
             return TESTNET_STANDARD_PORT;
         case DSChainType_DevNet: {
             NSError *error = nil;
-            uint32_t cachedStandardPort = (uint32_t)getKeychainInt([NSString stringWithFormat:@"%@%@", self.devnetIdentifier, STANDARD_PORT_LOCATION], &error);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            uint32_t cachedStandardPort = (uint32_t)getKeychainInt([NSString stringWithFormat:@"%@%@", chainInfo.identifier, STANDARD_PORT_LOCATION], &error);
             if (!error && cachedStandardPort) {
                 _cachedStandardPort = cachedStandardPort;
                 return _cachedStandardPort;
@@ -955,7 +963,8 @@ static dispatch_once_t devnetToken = 0;
             return;
         case DSChainType_DevNet: {
             _cachedStandardPort = standardPort;
-            setKeychainInt(standardPort, [NSString stringWithFormat:@"%@%@", self.devnetIdentifier, STANDARD_PORT_LOCATION], NO);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            setKeychainInt(standardPort, [NSString stringWithFormat:@"%@%@", chainInfo.identifier, STANDARD_PORT_LOCATION], NO);
             break;
         }
     }
@@ -972,7 +981,8 @@ static dispatch_once_t devnetToken = 0;
             return TESTNET_DAPI_GRPC_STANDARD_PORT;
         case DSChainType_DevNet: {
             NSError *error = nil;
-            uint32_t cachedStandardDapiGRPCPort = (uint32_t)getKeychainInt([NSString stringWithFormat:@"%@%@", self.devnetIdentifier, GRPC_PORT_LOCATION], &error);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            uint32_t cachedStandardDapiGRPCPort = (uint32_t)getKeychainInt([NSString stringWithFormat:@"%@%@", chainInfo.identifier, GRPC_PORT_LOCATION], &error);
             if (!error && cachedStandardDapiGRPCPort) {
                 _cachedStandardDapiGRPCPort = cachedStandardDapiGRPCPort;
                 return _cachedStandardDapiGRPCPort;
@@ -990,7 +1000,8 @@ static dispatch_once_t devnetToken = 0;
             return;
         case DSChainType_DevNet: {
             _cachedStandardDapiGRPCPort = standardDapiGRPCPort;
-            setKeychainInt(standardDapiGRPCPort, [NSString stringWithFormat:@"%@%@", self.devnetIdentifier, GRPC_PORT_LOCATION], NO);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            setKeychainInt(standardDapiGRPCPort, [NSString stringWithFormat:@"%@%@", chainInfo.identifier, GRPC_PORT_LOCATION], NO);
             break;
         }
     }
@@ -1051,7 +1062,8 @@ static dispatch_once_t devnetToken = 0;
             return SPORK_PUBLIC_KEY_TESTNET;
         case DSChainType_DevNet: {
             NSError *error = nil;
-            NSString *publicKey = getKeychainString([NSString stringWithFormat:@"%@%@", self.devnetIdentifier, SPORK_PUBLIC_KEY_LOCATION], &error);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            NSString *publicKey = getKeychainString([NSString stringWithFormat:@"%@%@", chainInfo.identifier, SPORK_PUBLIC_KEY_LOCATION], &error);
             if (!error && publicKey) {
                 return publicKey;
             } else {
@@ -1069,7 +1081,8 @@ static dispatch_once_t devnetToken = 0;
         case DSChainType_TestNet:
             return;
         case DSChainType_DevNet: {
-            setKeychainString(sporkPublicKey, [NSString stringWithFormat:@"%@%@", self.devnetIdentifier, SPORK_PUBLIC_KEY_LOCATION], NO);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            setKeychainString(sporkPublicKey, [NSString stringWithFormat:@"%@%@", chainInfo.identifier, SPORK_PUBLIC_KEY_LOCATION], NO);
             break;
         }
     }
@@ -1083,7 +1096,8 @@ static dispatch_once_t devnetToken = 0;
             return nil;
         case DSChainType_DevNet: {
             NSError *error = nil;
-            NSString *publicKey = getKeychainString([NSString stringWithFormat:@"%@%@", self.devnetIdentifier, SPORK_PRIVATE_KEY_LOCATION], &error);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            NSString *publicKey = getKeychainString([NSString stringWithFormat:@"%@%@", chainInfo.identifier, SPORK_PRIVATE_KEY_LOCATION], &error);
             if (!error && publicKey) {
                 return publicKey;
             }
@@ -1099,7 +1113,8 @@ static dispatch_once_t devnetToken = 0;
         case DSChainType_TestNet:
             return;
         case DSChainType_DevNet: {
-            setKeychainString(sporkPrivateKey, [NSString stringWithFormat:@"%@%@", self.devnetIdentifier, SPORK_PRIVATE_KEY_LOCATION], YES);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            setKeychainString(sporkPrivateKey, [NSString stringWithFormat:@"%@%@", chainInfo.identifier, SPORK_PRIVATE_KEY_LOCATION], YES);
             break;
         }
     }
@@ -1113,7 +1128,8 @@ static dispatch_once_t devnetToken = 0;
             return SPORK_ADDRESS_TESTNET;
         case DSChainType_DevNet: {
             NSError *error = nil;
-            NSString *publicKey = getKeychainString([NSString stringWithFormat:@"%@%@", self.devnetIdentifier, SPORK_ADDRESS_LOCATION], &error);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            NSString *publicKey = getKeychainString([NSString stringWithFormat:@"%@%@", chainInfo.identifier, SPORK_ADDRESS_LOCATION], &error);
             if (!error && publicKey) {
                 return publicKey;
             } else {
@@ -1131,7 +1147,8 @@ static dispatch_once_t devnetToken = 0;
         case DSChainType_TestNet:
             return;
         case DSChainType_DevNet: {
-            setKeychainString(sporkAddress, [NSString stringWithFormat:@"%@%@", self.devnetIdentifier, SPORK_ADDRESS_LOCATION], NO);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            setKeychainString(sporkAddress, [NSString stringWithFormat:@"%@%@", chainInfo.identifier, SPORK_ADDRESS_LOCATION], NO);
             break;
         }
     }
@@ -1168,7 +1185,8 @@ static dispatch_once_t devnetToken = 0;
             return PLATFORM_PROTOCOL_VERSION_TESTNET;
         case DSChainType_DevNet: {
             NSError *error = nil;
-            uint32_t platformProtocolVersion = (uint32_t)getKeychainInt([NSString stringWithFormat:@"%@%@", self.devnetIdentifier, PLATFORM_PROTOCOL_VERSION_LOCATION], &error);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            uint32_t platformProtocolVersion = (uint32_t)getKeychainInt([NSString stringWithFormat:@"%@%@", chainInfo.identifier, PLATFORM_PROTOCOL_VERSION_LOCATION], &error);
             if (!error && platformProtocolVersion)
                 return platformProtocolVersion;
             else
@@ -1184,7 +1202,8 @@ static dispatch_once_t devnetToken = 0;
         case DSChainType_TestNet:
             return;
         case DSChainType_DevNet: {
-            setKeychainInt(platformProtocolVersion, [NSString stringWithFormat:@"%@%@", self.devnetIdentifier, PLATFORM_PROTOCOL_VERSION_LOCATION], NO);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            setKeychainInt(platformProtocolVersion, [NSString stringWithFormat:@"%@%@", chainInfo.identifier, PLATFORM_PROTOCOL_VERSION_LOCATION], NO);
             break;
         }
     }
@@ -1203,7 +1222,8 @@ static dispatch_once_t devnetToken = 0;
             return _cachedDpnsContractID;
         case DSChainType_DevNet: {
             NSError *error = nil;
-            NSData *cachedDpnsContractIDData = getKeychainData([NSString stringWithFormat:@"%@%@", self.devnetIdentifier, DPNS_CONTRACT_ID], &error);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            NSData *cachedDpnsContractIDData = getKeychainData([NSString stringWithFormat:@"%@%@", chainInfo.identifier, DPNS_CONTRACT_ID], &error);
             if (!error && cachedDpnsContractIDData) {
                 _cachedDpnsContractID = cachedDpnsContractIDData.UInt256;
                 return _cachedDpnsContractID;
@@ -1223,13 +1243,15 @@ static dispatch_once_t devnetToken = 0;
             _cachedDpnsContractID = dpnsContractID;
             if (uint256_is_zero(dpnsContractID)) {
                 NSError *error = nil;
-                NSString *identifier = [NSString stringWithFormat:@"%@%@", self.devnetIdentifier, DPNS_CONTRACT_ID];
+                DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+                NSString *identifier = [NSString stringWithFormat:@"%@%@", chainInfo.identifier, DPNS_CONTRACT_ID];
                 BOOL hasDashpayContractID = (getKeychainData(identifier, &error) != nil);
                 if (hasDashpayContractID) {
                     setKeychainData(nil, identifier, NO);
                 }
             } else {
-                setKeychainData(uint256_data(dpnsContractID), [NSString stringWithFormat:@"%@%@", self.devnetIdentifier, DPNS_CONTRACT_ID], NO);
+                DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+                setKeychainData(uint256_data(dpnsContractID), [NSString stringWithFormat:@"%@%@", chainInfo.identifier, DPNS_CONTRACT_ID], NO);
             }
             break;
         }
@@ -1249,7 +1271,8 @@ static dispatch_once_t devnetToken = 0;
             return _cachedDashpayContractID;
         case DSChainType_DevNet: {
             NSError *error = nil;
-            NSData *cachedDashpayContractIDData = getKeychainData([NSString stringWithFormat:@"%@%@", self.devnetIdentifier, DASHPAY_CONTRACT_ID], &error);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            NSData *cachedDashpayContractIDData = getKeychainData([NSString stringWithFormat:@"%@%@", chainInfo.identifier, DASHPAY_CONTRACT_ID], &error);
             if (!error && cachedDashpayContractIDData) {
                 _cachedDashpayContractID = cachedDashpayContractIDData.UInt256;
                 return _cachedDashpayContractID;
@@ -1267,15 +1290,16 @@ static dispatch_once_t devnetToken = 0;
             return;
         case DSChainType_DevNet: {
             _cachedDashpayContractID = dashpayContractID;
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
             if (uint256_is_zero(dashpayContractID)) {
                 NSError *error = nil;
-                NSString *identifier = [NSString stringWithFormat:@"%@%@", self.devnetIdentifier, DASHPAY_CONTRACT_ID];
+                NSString *identifier = [NSString stringWithFormat:@"%@%@", chainInfo.identifier, DASHPAY_CONTRACT_ID];
                 BOOL hasDashpayContractID = (getKeychainData(identifier, &error) != nil);
                 if (hasDashpayContractID) {
                     setKeychainData(nil, identifier, NO);
                 }
             } else {
-                setKeychainData(uint256_data(dashpayContractID), [NSString stringWithFormat:@"%@%@", self.devnetIdentifier, DASHPAY_CONTRACT_ID], NO);
+                setKeychainData(uint256_data(dashpayContractID), [NSString stringWithFormat:@"%@%@", chainInfo.identifier, DASHPAY_CONTRACT_ID], NO);
             }
             break;
         }
@@ -1290,7 +1314,8 @@ static dispatch_once_t devnetToken = 0;
             return;
         case DSChainType_DevNet: {
             _cachedMinimumDifficultyBlocks = minimumDifficultyBlocks;
-            setKeychainInt(minimumDifficultyBlocks, [NSString stringWithFormat:@"%@%@", self.devnetIdentifier, MINIMUM_DIFFICULTY_BLOCKS_COUNT_KEY], NO);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            setKeychainInt(minimumDifficultyBlocks, [NSString stringWithFormat:@"%@%@", chainInfo.identifier, MINIMUM_DIFFICULTY_BLOCKS_COUNT_KEY], NO);
             break;
         }
     }
@@ -1307,7 +1332,8 @@ static dispatch_once_t devnetToken = 0;
             return 0;
         case DSChainType_DevNet: {
             NSError *error = nil;
-            uint32_t cachedMinimumDifficultyBlocks = (uint32_t)getKeychainInt([NSString stringWithFormat:@"%@%@", self.devnetIdentifier, MINIMUM_DIFFICULTY_BLOCKS_COUNT_KEY], &error);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            uint32_t cachedMinimumDifficultyBlocks = (uint32_t)getKeychainInt([NSString stringWithFormat:@"%@%@", chainInfo.identifier, MINIMUM_DIFFICULTY_BLOCKS_COUNT_KEY], &error);
             if (!error && cachedMinimumDifficultyBlocks) {
                 _cachedMinimumDifficultyBlocks = cachedMinimumDifficultyBlocks;
                 return _cachedMinimumDifficultyBlocks;
@@ -1329,7 +1355,8 @@ static dispatch_once_t devnetToken = 0;
             return TESTNET_DAPI_JRPC_STANDARD_PORT;
         case DSChainType_DevNet: {
             NSError *error = nil;
-            uint32_t cachedStandardDapiJRPCPort = (uint32_t)getKeychainInt([NSString stringWithFormat:@"%@%@", self.devnetIdentifier, JRPC_PORT_LOCATION], &error);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            uint32_t cachedStandardDapiJRPCPort = (uint32_t)getKeychainInt([NSString stringWithFormat:@"%@%@", chainInfo.identifier, JRPC_PORT_LOCATION], &error);
             if (!error && cachedStandardDapiJRPCPort) {
                 _cachedStandardDapiJRPCPort = cachedStandardDapiJRPCPort;
                 return _cachedStandardDapiJRPCPort;
@@ -1347,7 +1374,8 @@ static dispatch_once_t devnetToken = 0;
             return;
         case DSChainType_DevNet: {
             _cachedStandardDapiJRPCPort = standardDapiJRPCPort;
-            setKeychainInt(standardDapiJRPCPort, [NSString stringWithFormat:@"%@%@", self.devnetIdentifier, JRPC_PORT_LOCATION], NO);
+            DSDevnetChainInfo *chainInfo = (DSDevnetChainInfo *)self.chainInfo;
+            setKeychainInt(standardDapiJRPCPort, [NSString stringWithFormat:@"%@%@", chainInfo.identifier, JRPC_PORT_LOCATION], NO);
             break;
         }
     }
@@ -3639,7 +3667,7 @@ static dispatch_once_t devnetToken = 0;
     NSParameterAssert(context);
     __block DSChainEntity *chainEntity = nil;
     [context performBlockAndWait:^{
-        chainEntity = [DSChainEntity chainEntityForType:self.chainType devnetIdentifier:self.devnetIdentifier devnetVersion:self.devnetVersion checkpoints:self.checkpoints inContext:context];
+        chainEntity = [DSChainEntity chainEntityForChainInfo:self.chainInfo checkpoints:self.checkpoints inContext:context];
     }];
     return chainEntity;
 }

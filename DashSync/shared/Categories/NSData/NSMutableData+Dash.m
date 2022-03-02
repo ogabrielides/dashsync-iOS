@@ -264,7 +264,7 @@ CFAllocatorRef SecureAllocator() {
     [self appendBytes:message.UTF8String length:l];
     
     if (protocolVersion >= 70220) {
-        [self appendUInt32:version];
+        [self appendVarInt:version];
     }
     return self;
 }

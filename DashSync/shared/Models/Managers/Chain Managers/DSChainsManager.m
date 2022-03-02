@@ -38,7 +38,7 @@
 #import "NSString+Dash.h"
 #include <arpa/inet.h>
 
-#define DEVNET_CHAINS_KEY @"DEVNET_CHAINS_KEY"
+#define DEVNET_CHAININFOS_KEY @"DEVNET_CHAININFOS_KEY"
 
 @interface DSChainsManager ()
 
@@ -68,15 +68,14 @@
         self.knownChains = [NSMutableArray array];
         NSError *error = nil;
         NSMutableDictionary *registeredDevnetIdentifiers = [NSMutableDictionary dictionary];
-        NSDictionary *dictionaryFromKeyChain = getKeychainDict(DEVNET_CHAINS_KEY, @[[NSString class], [NSArray class], [DSCheckpoint class]], &error);
+        NSDictionary *dictionaryFromKeyChain = getKeychainDict(DEVNET_CHAININFOS_KEY, @[[DSDevnetChainInfo class], [NSString class], [NSArray class], [DSCheckpoint class]], &error);
         if (dictionaryFromKeyChain && error == nil) {
             registeredDevnetIdentifiers = [dictionaryFromKeyChain mutableCopy];
         }
         self.knownDevnetChains = [NSMutableArray array];
-        for (NSString *string in registeredDevnetIdentifiers) {
-            NSArray<DSCheckpoint *> *checkpointArray = registeredDevnetIdentifiers[string];
-            //todo deal with version > 1
-            DSChain *chain = [DSChain recoverKnownDevnetWithIdentifier:string version:1 withCheckpoints:checkpointArray performSetup:NO];
+        for (DSDevnetChainInfo *chainInfo in registeredDevnetIdentifiers) {
+            NSArray<DSCheckpoint *> *checkpointArray = registeredDevnetIdentifiers[chainInfo];
+            DSChain *chain = [DSChain recoverKnownDevnetWithChainInfo:chainInfo withCheckpoints:checkpointArray performSetup:NO];
             chain.chainManager = [self devnetManagerForChain:chain];
             [self.knownDevnetChains addObject:chain]; //adding this before setup prevents a loop
             [chain setUp];
@@ -245,14 +244,15 @@
     }
 }
 
-- (DSChain *)registerDevnetChainWithIdentifier:(NSString *)identifier version:(uint16_t)version forServiceLocations:(NSOrderedSet<NSString *> *)serviceLocations withMinimumDifficultyBlocks:(uint32_t)minimumDifficultyBlocks standardPort:(uint32_t)standardPort dapiJRPCPort:(uint32_t)dapiJRPCPort dapiGRPCPort:(uint32_t)dapiGRPCPort dpnsContractID:(UInt256)dpnsContractID dashpayContractID:(UInt256)dashpayContractID protocolVersion:(uint32_t)protocolVersion minProtocolVersion:(uint32_t)minProtocolVersion sporkAddress:(NSString *)sporkAddress sporkPrivateKey:(NSString *)sporkPrivateKey instantSendLockQuorumType:(DSLLMQType)instantSendLockQuorumsType chainLockQuorumType:(DSLLMQType)chainLockQuorumsType platformQuorumType:(DSLLMQType)platformQuorumType {
-    NSParameterAssert(identifier);
+- (DSChain *)registerDevnetChainWithChainInfo:(DSDevnetChainInfo *)chainInfo protocolVersion:(uint32_t)protocolVersion minProtocolVersion:(uint32_t)minProtocolVersion forServiceLocations:(NSOrderedSet<NSString *> *)serviceLocations withMinimumDifficultyBlocks:(uint32_t)minimumDifficultyBlocks standardPort:(uint32_t)standardPort dapiJRPCPort:(uint32_t)dapiJRPCPort dapiGRPCPort:(uint32_t)dapiGRPCPort dpnsContractID:(UInt256)dpnsContractID dashpayContractID:(UInt256)dashpayContractID sporkAddress:(NSString *)sporkAddress sporkPrivateKey:(NSString *)sporkPrivateKey instantSendLockQuorumType:(DSLLMQType)instantSendLockQuorumsType chainLockQuorumType:(DSLLMQType)chainLockQuorumsType platformQuorumType:(DSLLMQType)platformQuorumType {
+    NSParameterAssert(chainInfo.identifier);
     NSParameterAssert(serviceLocations);
 
     NSError *error = nil;
 
-    DSChain *chain = [DSChain setUpDevnetWithIdentifier:identifier version:version protocolVersion:protocolVersion?protocolVersion:PROTOCOL_VERSION_DEVNET minProtocolVersion:minProtocolVersion?minProtocolVersion:DEFAULT_MIN_PROTOCOL_VERSION_DEVNET withCheckpoints:nil withMinimumDifficultyBlocks:minimumDifficultyBlocks withDefaultPort:standardPort withDefaultDapiJRPCPort:dapiJRPCPort withDefaultDapiGRPCPort:dapiGRPCPort dpnsContractID:dpnsContractID dashpayContractID:dashpayContractID instantSendLockQuorumType:instantSendLockQuorumsType chainLockQuorumType:chainLockQuorumsType platformQuorumType:platformQuorumType isTransient:NO];
-    
+    DSChain *chain = [DSChain setUpDevnetWithChainInfo:chainInfo withCheckpoints:nil withMinimumDifficultyBlocks:minimumDifficultyBlocks withDefaultPort:standardPort withDefaultDapiJRPCPort:dapiJRPCPort withDefaultDapiGRPCPort:dapiGRPCPort dpnsContractID:dpnsContractID dashpayContractID:dashpayContractID instantSendLockQuorumType:instantSendLockQuorumsType chainLockQuorumType:chainLockQuorumsType platformQuorumType:platformQuorumType isTransient:NO];
+
+
     if (sporkAddress && [sporkAddress isValidDashDevnetAddress]) {
         chain.sporkAddress = sporkAddress;
     }
@@ -285,13 +285,14 @@
                                dapiGRPCPort:dapiGRPCPort];
     }
 
-    NSMutableDictionary *registeredDevnetsDictionary = [getKeychainDict(DEVNET_CHAINS_KEY, @[[NSString class], [NSArray class], [DSCheckpoint class]], &error) mutableCopy];
+    NSMutableDictionary *registeredDevnetsDictionary = [getKeychainDict(DEVNET_CHAININFOS_KEY, @[[DSDevnetChainInfo class], [NSString class], [NSArray class], [DSCheckpoint class]], &error) mutableCopy];
 
     if (!registeredDevnetsDictionary) registeredDevnetsDictionary = [NSMutableDictionary dictionary];
-    if (![[registeredDevnetsDictionary allKeys] containsObject:identifier]) {
-        [registeredDevnetsDictionary setObject:chain.checkpoints forKey:identifier];
-        setKeychainDict(registeredDevnetsDictionary, DEVNET_CHAINS_KEY, NO);
+    if (![[registeredDevnetsDictionary allKeys] containsObject:chainInfo]) {
+        [registeredDevnetsDictionary setObject:chain.checkpoints forKey:chainInfo];
+        setKeychainDict(registeredDevnetsDictionary, DEVNET_CHAININFOS_KEY, NO);
     }
+    //    [self.knownDevnetChains addObject:chain]; // adding this before setup prevents a loop
     dispatch_async(dispatch_get_main_queue(), ^{
         [[NSNotificationCenter defaultCenter] postNotificationName:DSChainsDidChangeNotification object:nil];
     });
@@ -310,12 +311,12 @@
                                                                   DSChainManager *chainManager = [self chainManagerForChain:chain];
                                                                   DSPeerManager *peerManager = chainManager.peerManager;
                                                                   [peerManager clearRegisteredPeers];
-                                                                  NSMutableDictionary *registeredDevnetsDictionary = [getKeychainDict(DEVNET_CHAINS_KEY, @[[NSString class], [NSArray class], [DSCheckpoint class]], &error) mutableCopy];
+                                                                  NSMutableDictionary *registeredDevnetsDictionary = [getKeychainDict(DEVNET_CHAININFOS_KEY, @[[DSDevnetChainInfo class], [NSString class], [NSArray class], [DSCheckpoint class]], &error) mutableCopy];
 
                                                                   if (!registeredDevnetsDictionary) registeredDevnetsDictionary = [NSMutableDictionary dictionary];
-                                                                  if ([[registeredDevnetsDictionary allKeys] containsObject:chain.devnetIdentifier]) {
-                                                                      [registeredDevnetsDictionary removeObjectForKey:chain.devnetIdentifier];
-                                                                      setKeychainDict(registeredDevnetsDictionary, DEVNET_CHAINS_KEY, NO);
+                                                                  if ([[registeredDevnetsDictionary allKeys] containsObject:chain.chainInfo]) {
+                                                                      [registeredDevnetsDictionary removeObjectForKey:chain.chainInfo];
+                                                                      setKeychainDict(registeredDevnetsDictionary, DEVNET_CHAININFOS_KEY, NO);
                                                                   }
                                                                   [chain wipeWalletsAndDerivatives];
                                                                   NSManagedObjectContext *context = [NSManagedObjectContext chainContext];

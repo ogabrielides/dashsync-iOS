@@ -3247,7 +3247,7 @@
 }
 
 - (void)testDIP0024 {
-    DSChain *chain = [DSChain devnetWithIdentifier:@"malort"];
+    DSChain *chain = [DSChain devnetWithChainInfo:[DSDevnetChainInfo devnetChainInfoWithIdentifier:@"devnet-malort" version:1]];
 }
 
 @end

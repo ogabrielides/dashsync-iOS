@@ -28,6 +28,7 @@
 #import "DSChainsManager.h"
 #import "DSCreditFundingTransaction.h"
 #import "DSDerivationPath.h"
+#import "DSDevnetChainInfo.h"
 #import "DSDocumentTransition.h"
 #import "DSECDSAKey.h"
 #import "DSFundsDerivationPath.h"
@@ -62,7 +63,8 @@
 @implementation DSTransitionTests
 
 - (void)setUp {
-    self.chain = [DSChain setUpDevnetWithIdentifier:@"0" version:1 protocolVersion:PROTOCOL_VERSION_DEVNET minProtocolVersion:DEFAULT_MIN_PROTOCOL_VERSION_DEVNET withCheckpoints:nil withMinimumDifficultyBlocks:0 withDefaultPort:20001 withDefaultDapiJRPCPort:3000 withDefaultDapiGRPCPort:3010 dpnsContractID:UINT256_ZERO dashpayContractID:UINT256_ZERO instantSendLockQuorumType:DSLLMQType_50_60 chainLockQuorumType:DSLLMQType_50_60 platformQuorumType:DSLLMQType_100_67 isTransient:YES];
+    DSDevnetChainInfo *chainInfo = [DSDevnetChainInfo devnetChainInfoWithIdentifier:@"0" version:1];
+    self.chain = [DSChain setUpDevnetWithChainInfo:chainInfo withCheckpoints:nil withMinimumDifficultyBlocks:0 withDefaultPort:20001 withDefaultDapiJRPCPort:3000 withDefaultDapiGRPCPort:3010 dpnsContractID:UINT256_ZERO dashpayContractID:UINT256_ZERO instantSendLockQuorumType:DSLLMQType_50_60 chainLockQuorumType:DSLLMQType_50_60 platformQuorumType:DSLLMQType_100_67 isTransient:YES];
     NSString *seedPhrase = @"pigeon social employ east owner purpose buddy proof soul suit pumpkin punch";
     self.testWallet = [DSWallet standardWalletWithSeedPhrase:@"pigeon social employ east owner purpose buddy proof soul suit pumpkin punch" setCreationDate:0 forChain:self.chain storeSeedPhrase:NO isTransient:YES];
 

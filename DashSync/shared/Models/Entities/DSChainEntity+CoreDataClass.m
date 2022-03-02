@@ -53,8 +53,7 @@
         return self.cachedChain;
     }
     __block DSChainType type;
-    __block NSString *devnetIdentifier;
-    __block uint16_t devnetVersion;
+    __block DSDevnetChainInfo *chainInfo;
     __block NSData *data;
     __block uint32_t totalGovernanceObjectsCount;
     __block UInt256 baseBlockHash;
@@ -67,8 +66,7 @@
     __block NSArray *lastPersistedChainSyncLocators;
     [self.managedObjectContext performBlockAndWait:^{
         type = self.type;
-        devnetIdentifier = self.devnetIdentifier;
-        devnetVersion = self.devnetVersion;
+        chainInfo = [DSDevnetChainInfo devnetChainInfoWithIdentifier:self.devnetIdentifier version:self.devnetVersion];
         data = self.checkpoints;
         totalGovernanceObjectsCount = self.totalGovernanceObjectsCount;
         baseBlockHash = self.baseBlockHash.UInt256;
@@ -84,12 +82,13 @@
     } else if (type == DSChainType_TestNet) {
         chain = [DSChain testnet];
     } else if (type == DSChainType_DevNet) {
-        if ([DSChain devnetWithIdentifier:devnetIdentifier]) {
-            chain = [DSChain devnetWithIdentifier:devnetIdentifier];
+        DSChain *devChain = [DSChain devnetWithChainInfo:chainInfo];
+        if (devChain) {
+            chain = devChain;
         } else {
             NSError *checkpointRetrievalError = nil;
             NSArray *checkpointArray = [NSKeyedUnarchiver unarchivedObjectOfClass:[NSArray class] fromData:data error:&checkpointRetrievalError];
-            chain = [DSChain recoverKnownDevnetWithIdentifier:devnetIdentifier version:devnetVersion withCheckpoints:checkpointRetrievalError ? @[] : checkpointArray performSetup:YES];
+            chain = [DSChain recoverKnownDevnetWithChainInfo:chainInfo withCheckpoints:checkpointRetrievalError ? @[] : checkpointArray performSetup:YES];
         }
     } else {
         NSAssert(FALSE, @"Unknown DSChainType");
@@ -119,6 +118,11 @@
     chain.lastPersistedChainSyncBlockTimestamp = lastPersistedChainSyncBlockTimestamp;
     self.cachedChain = chain;
     return chain;
+}
+
++ (DSChainEntity *_Nonnull)chainEntityForChainInfo:(DSChainInfo *)chainInfo checkpoints:(NSArray *_Nullable)checkpoints inContext:(NSManagedObjectContext *)context {
+    DSDevnetChainInfo *devnetChainInfo = (DSDevnetChainInfo *)chainInfo;
+    return [self chainEntityForType:devnetChainInfo.chainType devnetIdentifier:devnetChainInfo.identifier devnetVersion:devnetChainInfo.version checkpoints:checkpoints inContext:context];
 }
 
 + (DSChainEntity *)chainEntityForType:(DSChainType)type devnetIdentifier:(NSString *)devnetIdentifier devnetVersion:(uint16_t)devnetVersion checkpoints:(NSArray *)checkpoints inContext:(NSManagedObjectContext *)context {

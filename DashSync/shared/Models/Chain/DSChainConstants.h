@@ -87,4 +87,34 @@
 #define MIN_FEE_PER_B TX_FEE_PER_B // minimum relay fee on a 191byte tx
 #define MAX_FEE_PER_B 1000         // slightly higher than a 1000bit fee on a 191byte tx
 
-#define HEADER_WINDOW_BUFFER_TIME (WEEK_TIME_INTERVAL / 2) //This is about the time if we consider a block every 10 mins (for 500 blocks)
+#define HEADER_WINDOW_BUFFER_TIME (WEEK_TIME_INTERVAL / 2) // This is about the time if we consider a block every 10 mins (for 500 blocks)
+
+typedef NS_ENUM(uint16_t, DSChainType) {
+    DSChainType_MainNet = 0,
+    DSChainType_TestNet = 1,
+    DSChainType_DevNet = 2,
+};
+
+typedef NS_ENUM(NSUInteger, DSTransactionDirection) {
+    DSTransactionDirection_Sent,
+    DSTransactionDirection_Received,
+    DSTransactionDirection_Moved,
+    DSTransactionDirection_NotAccountFunds,
+};
+
+typedef NS_ENUM(uint16_t, DSLLMQType) {
+    DSLLMQType_50_60 = 1,  // every 24 blocks
+    DSLLMQType_400_60 = 2, // 288 blocks
+    DSLLMQType_400_85 = 3, // 576 blocks
+    DSLLMQType_100_67 = 4, // every 24 blocks
+    DSLLMQType_60_80 = 5,
+    DSLLMQType_5_60 = 100, // 24 blocks
+    DSLLMQType_10_60 = 101 // 24 blocks
+};
+
+typedef NS_ENUM(uint16_t, DSChainSyncPhase) {
+    DSChainSyncPhase_Offline = 0,
+    DSChainSyncPhase_InitialTerminalBlocks,
+    DSChainSyncPhase_ChainSync,
+    DSChainSyncPhase_Synced,
+};
