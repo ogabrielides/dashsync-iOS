@@ -62,7 +62,13 @@
 }
 
 - (NSUInteger)hash {
-    return self.chainType ^ self.identifier.hash ^ self.version;
+    //    return self.chainType ^ self.identifier.hash ^ self.version;
+    NSUInteger prime = 31;
+    NSUInteger result = 1;
+    result = prime * result + self.chainType;
+    result = prime * result + self.version;
+    result = prime * result + [self.identifier hash];
+    return result;
 }
 
 @end
