@@ -140,7 +140,7 @@ static NSString *const DPCONTRACT_SCHEMA_ID = @"contract";
 }
 
 + (DPContract *)contractFromDictionary:(DSStringValueDictionary *)rawContract withLocalIdentifier:(NSString *)localContractIdentifier onChain:(DSChain *)chain {
-    NSDictionary<NSString *, DSStringValueDictionary *> *documents = rawContract[@"documents"];
+    NSDictionary<NSString *, DSStringValueDictionary *> *documents = rawContract;
 
     DPContract *contract = [[DPContract alloc] initWithLocalContractIdentifier:localContractIdentifier
                                                                      documents:documents

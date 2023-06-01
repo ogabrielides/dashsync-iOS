@@ -290,8 +290,8 @@
     uint32_t dapiJRPCPort = DEVNET_DAPI_JRPC_STANDARD_PORT;
     uint32_t dapiGRPCPort = DEVNET_DAPI_GRPC_STANDARD_PORT;
         
-    UInt256 dpnsContractID = UINT256_ZERO;
-    UInt256 dashpayContractID = UINT256_ZERO;
+    UInt256 dpnsContractID = @"GWRSAVFMjXx8HpQFaNJMqBV7MBgMK4br5UESsB4S31Ec".base58ToData.UInt256;
+    UInt256 dashpayContractID = @"5PhRFRrWZc5Mj8NqtpHNXCmmEQkcZE8akyDkKhsUVD4k".base58ToData.UInt256;
 //    uint32_t version = 1;
 
     if (chain) {

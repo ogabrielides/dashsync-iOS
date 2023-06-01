@@ -353,40 +353,6 @@
     }
 }
 
-- (void)parseGetIdentityIdsByPublicKeyHashesMessage:(GetIdentityIdsByPublicKeyHashesResponse *)getIdentitiesResponse {
-    NSAssert(self.chain, @"The chain must be set");
-    //    GetIdentityIdsByPublicKeyHashesResponse *identitiesByPublicKeyHashesResponse = (GetIdentityIdsByPublicKeyHashesResponse *)message;
-    NSMutableArray *identityDictionaries = [NSMutableArray array];
-    //    Proof *proof = identitiesByPublicKeyHashesResponse.proof;
-    //    ResponseMetadata *metaData = identitiesByPublicKeyHashesResponse.metadata;
-    NSError *error = nil;
-    //        NSDictionary *identitiesDictionary = [self verifyAndExtractFromProof:proof withMetadata:metaData error:&error];
-    //        if (error) {
-    //            self.decodingError = error;
-    //            return;
-    //        }
-
-    for (NSData *data in getIdentitiesResponse.identityIdsArray) {
-        if (!data.length) continue;
-        NSDictionary *identityDictionary = [data ds_decodeCborError:&error];
-        if (error) {
-            self.decodingError = error;
-            return;
-        }
-        NSData *identityIdData = [identityDictionary objectForKey:@"id"];
-        UInt256 identityId = identityIdData.UInt256;
-        if (uint256_is_zero(identityId)) {
-            self.decodingError = [NSError errorWithCode:500 localizedDescriptionKey:@"Platform returned an incorrect value as an identity ID"];
-            return;
-        }
-        [identityDictionaries addObject:identityDictionary];
-    }
-    self.responseObject = identityDictionaries;
-    if (error) {
-        self.decodingError = error;
-    }
-}
-
 - (void)didReceiveInitialMetadata:(nullable NSDictionary *)initialMetadata {
     DSLog(@"didReceiveInitialMetadata");
 }
@@ -402,8 +368,6 @@
         [self parseWaitForStateTransitionResultMessage:(WaitForStateTransitionResultResponse *)message];
     } else if ([message isMemberOfClass:[GetIdentitiesByPublicKeyHashesResponse class]]) {
         [self parseGetIdentitiesByPublicKeyHashesMessage:(GetIdentitiesByPublicKeyHashesResponse *)message];
-    } else if ([message isMemberOfClass:[GetIdentityIdsByPublicKeyHashesResponse class]]) {
-        [self parseGetIdentityIdsByPublicKeyHashesMessage:(GetIdentityIdsByPublicKeyHashesResponse *)message];
     } else if ([message isMemberOfClass:[GetTransactionResponse class]]) {
         GetTransactionResponse *transactionResponse = (GetTransactionResponse *)message;
         NSError *error = nil;
@@ -453,7 +417,7 @@
 }
 
 + (NSDictionary *)verifyAndExtractFromProof:(Proof *)proof withMetadata:(ResponseMetadata *)metaData query:(DSPlatformQuery *)query onChain:(DSChain *)chain error:(NSError **)error {
-    NSData *quorumHashData = proof.signatureLlmqHash;
+    NSData *quorumHashData = proof.quorumHash;
     if (!quorumHashData) {
         *error = [NSError errorWithCode:500 localizedDescriptionKey:@"Platform returned no quorum hash data"];
     }

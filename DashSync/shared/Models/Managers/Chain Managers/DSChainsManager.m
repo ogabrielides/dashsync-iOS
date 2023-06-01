@@ -292,6 +292,32 @@
         [registeredDevnetsDictionary setObject:chain.checkpoints forKey:devnetIdentifier];
         setKeychainDict(registeredDevnetsDictionary, DEVNET_CHAINS_KEY, NO);
     }
+    
+    {
+        chain.dpnsContractID = dpnsContractID;
+        DPContract *contract = [DSDashPlatform sharedInstanceForChain:chain].dpnsContract;
+        if (uint256_is_not_zero(dpnsContractID)) {
+            DSBlockchainIdentity *blockchainIdentity = [chain blockchainIdentityThatCreatedContract:[DPContract localDPNSContractForChain:chain] withContractId:dpnsContractID foundInWallet:nil];
+            if (blockchainIdentity) {
+                [contract registerCreator:blockchainIdentity inContext:[NSManagedObjectContext platformContext]];
+            }
+        } else {
+            [contract unregisterCreatorInContext:[NSManagedObjectContext platformContext]];
+        }
+    }
+    
+    chain.dashpayContractID = dashpayContractID;
+    DPContract *contract = [DSDashPlatform sharedInstanceForChain:chain].dashPayContract;
+    if (uint256_is_not_zero(dashpayContractID)) {
+        DSBlockchainIdentity *blockchainIdentity = [chain blockchainIdentityThatCreatedContract:[DPContract localDashpayContractForChain:chain] withContractId:dashpayContractID foundInWallet:nil];
+        if (blockchainIdentity) {
+            [contract registerCreator:blockchainIdentity inContext:[NSManagedObjectContext platformContext]];
+        }
+    } else {
+        [contract unregisterCreatorInContext:[NSManagedObjectContext platformContext]];
+    }
+    
+    
     dispatch_async(dispatch_get_main_queue(), ^{
         [[NSNotificationCenter defaultCenter] postNotificationName:DSChainsDidChangeNotification object:nil];
     });
