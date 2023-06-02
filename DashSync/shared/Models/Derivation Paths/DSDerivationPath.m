@@ -645,7 +645,8 @@
 }
 
 - (OpaqueKey *)publicKeyAtIndexPath:(NSIndexPath *)indexPath {
-    return [DSKeyManager publicKeyAtIndexPath:self.extendedPublicKey indexPath:indexPath];
+    NSData *data = [self publicKeyDataAtIndexPath:indexPath];
+    return [DSKeyManager keyWithPublicKeyData:data ofType:self.signingAlgorithm];
 }
 
 - (NSData *)publicKeyDataAtIndexPath:(NSIndexPath *)indexPath {
