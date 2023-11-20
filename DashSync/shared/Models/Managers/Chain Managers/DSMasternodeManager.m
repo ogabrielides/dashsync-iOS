@@ -310,6 +310,7 @@
 }
 
 - (NSData *_Nullable)CLSignatureForBlockHash:(UInt256)blockHash {
+    // TODO: remove self.store.cachedCLSignatures we should use this on rust side only
     NSData *cachedSig = [self.store.cachedCLSignatures objectForKey:uint256_data(blockHash)];
     if (!cachedSig) {
         DSChainLock *chainLock = [self.chain.chainManager chainLockForBlockHash:blockHash];
@@ -730,6 +731,7 @@
     if (uint256_eq(self.store.masternodeListAwaitingQuorumValidation.blockHash, masternodeList.blockHash)) {
         self.store.masternodeListAwaitingQuorumValidation = nil;
     }
+    // TODO: just remove it after migration 
     [self.store.cachedCLSignatures addEntriesFromDictionary:result.clSignatures];
     [self.store saveMasternodeList:masternodeList
                   addedMasternodes:result.addedMasternodes
